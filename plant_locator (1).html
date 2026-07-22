@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Plant Locator — 5G Homegrown Shrubs</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+         background: #f2f2f2; color: #1a1a1a; min-height: 100vh; }
+
+  header {
+    background: #1a1a1a; color: #fff; padding: 14px 16px 12px;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  }
+  header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.3px; }
+  header p  { font-size: 11px; color: #aaa; margin-top: 2px; }
+
+  #search-wrap {
+    padding: 12px 14px;
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+    position: sticky; top: 62px; z-index: 99;
+  }
+  #search {
+    width: 100%; padding: 11px 14px 11px 38px;
+    font-size: 16px; border: 1.5px solid #ccc; border-radius: 10px;
+    background: #f8f8f8; outline: none; transition: border-color 0.15s;
+    -webkit-appearance: none;
+  }
+  #search:focus { border-color: #2471a3; background: #fff; }
+  .search-icon {
+    position: absolute; left: 26px; top: 50%; transform: translateY(-50%);
+    font-size: 16px; color: #999; pointer-events: none;
+  }
+  #clear-btn {
+    position: absolute; right: 26px; top: 50%; transform: translateY(-50%);
+    font-size: 18px; color: #aaa; background: none; border: none;
+    cursor: pointer; display: none; line-height: 1; padding: 4px;
+  }
+
+  #result-count {
+    font-size: 11px; color: #888; padding: 8px 14px 4px;
+  }
+
+  #results { padding: 0 10px 80px; }
+
+  .area-group { margin-bottom: 10px; }
+  .area-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+    color: #fff; padding: 4px 10px; border-radius: 5px 5px 0 0;
+    text-transform: uppercase; display: flex; align-items: center; gap: 6px;
+  }
+  .brokered-badge {
+    background: rgba(255,255,255,0.25); border-radius: 4px;
+    padding: 1px 6px; font-size: 9px; letter-spacing: 0.5px;
+    font-weight: 800; border: 1px solid rgba(255,255,255,0.4);
+  }
+
+  .plant-card {
+    background: #fff;
+    border-left: 4px solid #ccc;
+    padding: 11px 14px 10px 14px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .plant-card:last-child { border-radius: 0 0 8px 8px; border-bottom: none; }
+
+  /* Brokered check-all note card */
+  .brokered-note {
+    padding: 10px 14px;
+    font-size: 12px; color: #7d4e00;
+    background: #fff8ec;
+    border-left: 4px solid #e67e22;
+    border-bottom: 1px solid #f0e0c8;
+    font-style: italic;
+  }
+
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  }
+  .plant-info { flex: 1; min-width: 0; }
+  .plant-name {
+    font-size: 14px; font-weight: 600; color: #111;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .plant-name em { font-style: normal; background: #fff176; border-radius: 2px; }
+  .plant-area { font-size: 11.5px; color: #555; margin-top: 1px; }
+  .plant-qty {
+    font-size: 12px; font-weight: 600; color: #fff;
+    padding: 3px 8px; border-radius: 12px; flex-shrink: 0; white-space: nowrap;
+  }
+  .plant-qty.brokered-qty {
+    background: #95a5a6 !important;
+    font-style: italic;
+  }
+
+  #no-results {
+    display: none; text-align: center; padding: 60px 20px; color: #999;
+  }
+  #no-results .emoji { font-size: 48px; display: block; margin-bottom: 12px; }
+  #no-results p { font-size: 15px; }
+
+  /* filter chips */
+  #filter-wrap {
+    padding: 8px 10px 6px;
+    display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    background: #fff; border-bottom: 1px solid #e8e8e8;
+  }
+  #filter-wrap::-webkit-scrollbar { display: none; }
+  .chip {
+    padding: 5px 11px; border-radius: 20px; font-size: 11.5px; font-weight: 600;
+    white-space: nowrap; cursor: pointer; border: 1.5px solid transparent;
+    transition: all 0.15s; flex-shrink: 0; color: #fff; opacity: 0.6;
+  }
+  .chip.active { opacity: 1; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+  .chip-all { background: #1a1a1a; opacity: 1; }
+  .chip-brokered { background: #e67e22; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌵 Plant Locator</h1>
+  <p>5G Homegrown Shrubs &amp; Succulents — 70+ species across 13 areas + brokered</p>
+</header>
+
+<div id="search-wrap" style="position:relative">
+  <span class="search-icon">🔍</span>
+  <input id="search" type="search" autocomplete="off" autocorrect="off" spellcheck="false"
+         placeholder="Search plant name or area…" oninput="onSearch(this.value)" />
+  <button id="clear-btn" onclick="clearSearch()">✕</button>
+</div>
+
+<div id="filter-wrap">
+  <div class="chip chip-all active" onclick="filterArea('ALL', this)">All Areas</div>
+  <div class="chip chip-brokered" onclick="filterArea('BROKERED', this)">🔖 Brokered</div>
+</div>
+
+<div id="result-count"></div>
+<div id="results"></div>
+<div id="no-results">
+  <span class="emoji">🌿</span>
+  <p>No plants match your search.</p>
+</div>
+
+<script>
+// ── Homegrown areas ────────────────────────────────────────────────────────────
+const AREAS = {
+  "Bobs' Vista NW":        { color: '#7b2d8b', bg: '#f9f0fc', brokered: false },
+  "Bobs' Vista NE":        { color: '#d35400', bg: '#fff5ec', brokered: false },
+  "Bobs' Vista SE":        { color: '#1e8449', bg: '#edfaf1', brokered: false },
+  "Bobs' Vista SW":        { color: '#c0185a', bg: '#fef0f5', brokered: false },
+  "Cardon":                { color: '#b8430a', bg: '#fff8f0', brokered: false },
+  "8 Casas — House 2":     { color: '#2471a3', bg: '#eaf4fb', brokered: false },
+  "8 Casas — House 7":     { color: '#1a5276', bg: '#d6eaf8', brokered: false },
+  "8 Casas — House 8":     { color: '#1f618d', bg: '#d6eaf8', brokered: false },
+  "Casa Grande":           { color: '#8e44ad', bg: '#f8f0fc', brokered: false },
+  "Casa Vieja":            { color: '#148f77', bg: '#e8faf8', brokered: false },
+  "Agave Sombra":          { color: '#1a5276', bg: '#eaf4fb', brokered: false },
+  "Playa Laguna":          { color: '#0e6655', bg: '#e8f8f5', brokered: false },
+  "Cell Tower 5G Area":    { color: '#2c3e50', bg: '#eaecee', brokered: false },
+  "Vine House":            { color: '#922b21', bg: '#fdf2f2', brokered: false },
+  "Las Palmas":            { color: '#7d6608', bg: '#fefde8', brokered: false },
+  // ── Brokered areas ──────────────────────────────────────────────────────────
+  "8 Casas — House 1 (Brokered)":      { color: '#e67e22', bg: '#fff5e6', brokered: true },
+  "Casa Grande SW Corner (Brokered)":  { color: '#d35400', bg: '#fff0e0', brokered: true },
+  "Loading Dock (Brokered)":           { color: '#ca6f1e', bg: '#fdebd0', brokered: true },
+  "North of Tall Shade (Brokered)":    { color: '#ba4a00', bg: '#fae5d3', brokered: true },
+};
+
+// ── Plant list ─────────────────────────────────────────────────────────────────
+// Format: [name, area, qty, tags[]]
+// tags can include "brokered" for searching
+const PLANTS = [
+  // Agave Sombra
+  ["Agave 'Blue Flame'",               "Agave Sombra",              600,  []],
+  ["Agave 'Blue Glow'",                "Agave Sombra",              800,  []],
+  ["Agave desmettiana",                "Agave Sombra",             1000,  []],
+  ["Agave victoriae-reginae",          "Agave Sombra",              500,  []],
+  ["Aloe 'Blue Elf'",                  "Agave Sombra",             1100,  []],
+  ["Aloe barbadensis",                 "Agave Sombra",             1000,  []],
+  ["Aloe Orange",                      "Agave Sombra",              350,  []],
+  ["Euphorbia tirucalli",              "Agave Sombra",              800,  []],
+  ["Pedilanthus macrocarpus",          "Agave Sombra",              800,  []],
+  ["Portulacaria afra",                "Agave Sombra",             1000,  []],
+  // Cell Tower
+  ["Agave americana",                  "Cell Tower 5G Area",        900,  []],
+  ["Agave angustifolia 'Marginata'",   "Cell Tower 5G Area",        700,  []],
+  ["Agave parryi",                     "Cell Tower 5G Area",        400,  []],
+  // Bobs' Vista NW
+  ["Eremophila 'Winter Blaze'",        "Bobs' Vista NW",           1000,  []],
+  ["Eremophila hygrophana",            "Bobs' Vista NW",            800,  []],
+  ["Eremophila maculata",              "Bobs' Vista NW",           1000,  []],
+  ["Eremophila prostrata",             "Bobs' Vista NW",           2000,  []],
+  ["Leucophyllum 'Compacta'",          "Bobs' Vista NW",            900,  []],
+  ["Leucophyllum 'Green Cloud'",       "Bobs' Vista NW",           1200,  []],
+  ["Leucophyllum 'Heavenly Cloud'",    "Bobs' Vista NW",            800,  []],
+  ["Leucophyllum \"Lynn's Legacy\"",   "Bobs' Vista NW",            400,  []],
+  ["Leucophyllum 'Rio Bravo'",         "Bobs' Vista NW",            400,  []],
+  ["Leucophyllum 'Thunder Cloud'",     "Bobs' Vista NW",            400,  []],
+  ["Leucophyllum zygophyllum",         "Bobs' Vista NW",            650,  []],
+  // Bobs' Vista NE
+  ["Calliandra californica",           "Bobs' Vista NE",           1500,  []],
+  ["Calliandra eriophylla",            "Bobs' Vista NE",            800,  []],
+  ["Rosmarinus Trailing",              "Bobs' Vista NE",           1700,  []],
+  ["Rosmarinus Upright",               "Bobs' Vista NE",            700,  []],
+  ["Senna nemophylla",                 "Bobs' Vista NE",            800,  []],
+  // Bobs' Vista SE
+  ["Dodonaea Green",                   "Bobs' Vista SE",           3000,  []],
+  ["Muhlenbergia capillaris",          "Bobs' Vista SE",           2800,  []],
+  ["Muhlenbergia rigens",              "Bobs' Vista SE",           2000,  []],
+  // Bobs' Vista SW
+  ["Nerium 'Petite Pink'",             "Bobs' Vista SW",           2800,  []],
+  ["Nerium Red",                       "Bobs' Vista SW",            800,  []],
+  ["Tecoma 'Fuego'",                   "Bobs' Vista SW",           1000,  []],
+  ["Tecoma 'Orange Jubilee'",          "Bobs' Vista SW",           1700,  []],
+  ["Tecoma stans",                     "Bobs' Vista SW",           2600,  []],
+  // Cardon
+  ["Agave parryi var. truncata",       "Cardon",                   1000,  []],
+  ["Caesalpinia pulcherrima",          "Cardon",                   1500,  []],
+  ["Callistemon 'Little John'",        "Cardon",                   2000,  []],
+  ["Dasylirion longissimum",           "Cardon",                    350,  []],
+  ["Dasylirion wheeleri",              "Cardon",                   1500,  []],
+  ["Echinocactus grusonii",            "Cardon",                   1800,  []],
+  ["Hesperaloe funifera",              "Cardon",                   1000,  []],
+  ["Hesperaloe parviflora 'Red Swan'", "Cardon",                    800,  []],
+  ["Hesperaloe parviflora Red",        "Cardon",                   3200,  []],
+  ["Hesperaloe parviflora Yellow",     "Cardon",                    800,  []],
+  ["Justicia californica",             "Cardon",                   1500,  []],
+  ["Myrtus communis 'Compacta'",       "Cardon",                   1000,  []],
+  ["Yucca pallida",                    "Cardon",                   1500,  []],
+  // 8 Casas — split by house
+  ["Ruellia peninsularis",             "8 Casas — House 2",        1300,  []],
+  ["Ruellia brittoniana",              "8 Casas — House 7",        1300,  []],
+  ["Bougainvillea 'Barbara Karst'",    "8 Casas — House 8",         500,  []],
+  // Casa Grande
+  ["Bougainvillea La Jolla",           "Casa Grande",              1500,  []],
+  ["Bougainvillea Torch Glow",         "Casa Grande",              1000,  []],
+  ["Lantana New Gold",                 "Casa Grande",              3500,  []],
+  ["Lantana Purple",                   "Casa Grande",              2000,  []],
+  ["Lantana Red",                      "Casa Grande",              2000,  []],
+  ["Lantana White",                    "Casa Grande",              1000,  []],
+  // Casa Vieja
+  ["Caesalpinia mexicana",             "Casa Vieja",                400,  []],
+  ["Carissa 'Boxwood Beauty'",         "Casa Vieja",                800,  []],
+  ["Russelia equisetiformis",          "Casa Vieja",               1000,  []],
+  ["Salvia greggii",                   "Casa Vieja",                400,  []],
+  // Las Palmas
+  ["Asclepias subulata",               "Las Palmas",                500,  []],
+  ["Dodonaea viscosa 'Purple'",        "Las Palmas",                500,  []],
+  ["Larrea tridentata",                "Las Palmas",                500,  []],
+  ["Olea 'Little Ollie'",              "Las Palmas",               2500,  []],
+  ["Teucrium chamaedrys",              "Las Palmas",                500,  []],
+  // Playa Laguna
+  ["Nerium White",                     "Playa Laguna",              800,  []],
+  ["Tecoma capensis",                  "Playa Laguna",              500,  []],
+  // Vine House
+  ["Bougainvillea 'Barbara Karst'",    "Vine House",                300,  []],
+  // ── Brokered areas — no specific plant assigned ──────────────────────────────
+  // These entries surface when searching "brokered"
+  ["— Check this area for availability",  "8 Casas — House 1 (Brokered)",     null, ["brokered"]],
+  ["— Check this area for availability",  "Casa Grande SW Corner (Brokered)", null, ["brokered"]],
+  ["— Check this area for availability",  "Loading Dock (Brokered)",           null, ["brokered"]],
+  ["— Check this area for availability",  "North of Tall Shade (Brokered)",    null, ["brokered"]],
+];
+
+let currentQuery = '';
+let currentArea  = 'ALL';
+
+// ── Build area filter chips ────────────────────────────────────────────────────
+const fw = document.getElementById('filter-wrap');
+Object.keys(AREAS).filter(a => !AREAS[a].brokered).forEach(area => {
+  const c = document.createElement('div');
+  c.className = 'chip';
+  c.style.background = AREAS[area].color;
+  c.textContent = area;
+  c.onclick = () => filterArea(area, c);
+  fw.appendChild(c);
+});
+
+function filterArea(area, el) {
+  currentArea = area;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+function onSearch(val) {
+  currentQuery = val.trim();
+  document.getElementById('clear-btn').style.display = val ? 'block' : 'none';
+  render();
+}
+
+function clearSearch() {
+  const inp = document.getElementById('search');
+  inp.value = '';
+  onSearch('');
+  inp.focus();
+}
+
+function highlight(text, query) {
+  if (!query) return text;
+  const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+  return text.replace(re, '<em>$1</em>');
+}
+
+function isBrokeredSearch(q) {
+  return ['brokered','broker','brokerd','brokers'].some(kw => kw.startsWith(q) || q.includes(kw));
+}
+
+function render() {
+  const q   = currentQuery.toLowerCase();
+  const area = currentArea;
+  const container = document.getElementById('results');
+  const noRes     = document.getElementById('no-results');
+  const countEl   = document.getElementById('result-count');
+
+  const showBrokered = isBrokeredSearch(q) || area === 'BROKERED';
+
+  const filtered = PLANTS.filter(([name, a, qty, tags]) => {
+    const isBrok = tags.includes('brokered') || AREAS[a]?.brokered;
+
+    if (area === 'BROKERED') return isBrok;
+    if (area !== 'ALL' && a !== area) return false;
+    if (isBrok && !showBrokered) return false; // hide brokered unless searched
+
+    const matchQ = !q || showBrokered
+      ? (name.toLowerCase().includes(q) || a.toLowerCase().includes(q) || tags.some(t => t.includes(q)))
+      : (name.toLowerCase().includes(q) || a.toLowerCase().includes(q));
+
+    return matchQ;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = '';
+    noRes.style.display = 'block';
+    countEl.textContent = '';
+    return;
+  }
+  noRes.style.display = 'none';
+
+  // Group by area in defined order
+  const areaOrder = Object.keys(AREAS);
+  const groups = {};
+  filtered.forEach(row => {
+    const a = row[1];
+    if (!groups[a]) groups[a] = [];
+    groups[a].push(row);
+  });
+
+  // Separate brokered from homegrown
+  const brokeredAreas  = areaOrder.filter(a => AREAS[a]?.brokered && groups[a]);
+  const homegrownAreas = areaOrder.filter(a => !AREAS[a]?.brokered && groups[a]);
+
+  let html = '';
+  let totalShown = 0;
+
+  // Brokered section header (if any brokered areas showing)
+  if (brokeredAreas.length > 0) {
+    html += `<div style="padding:10px 14px 4px;font-size:10px;font-weight:700;
+      letter-spacing:0.8px;color:#e67e22;text-transform:uppercase;">
+      🔖 BROKERED AREAS — check each for availability</div>`;
+    brokeredAreas.forEach(a => {
+      const style = AREAS[a];
+      html += `<div class="area-group">
+        <div class="area-label" style="background:${style.color}">
+          ${a} <span class="brokered-badge">BROKERED</span>
+        </div>
+        <div class="brokered-note">
+          No specific plant list — walk this area and check available stock.
+        </div>
+      </div>`;
+      totalShown++;
+    });
+  }
+
+  // Homegrown section
+  if (homegrownAreas.length > 0) {
+    if (brokeredAreas.length > 0) {
+      html += `<div style="padding:10px 14px 4px;font-size:10px;font-weight:700;
+        letter-spacing:0.8px;color:#555;text-transform:uppercase;">🌱 HOMEGROWN</div>`;
+    }
+    homegrownAreas.forEach(a => {
+      const style = AREAS[a] || { color:'#555', bg:'#f5f5f5' };
+      html += `<div class="area-group">
+        <div class="area-label" style="background:${style.color}">${a}</div>`;
+      groups[a].forEach(([name, , qty, tags]) => {
+        const isBrok = tags.includes('brokered');
+        html += `
+          <div class="plant-card" style="border-left-color:${style.color};background:${style.bg}">
+            <div class="dot" style="background:${style.color}"></div>
+            <div class="plant-info">
+              <div class="plant-name">${highlight(name, currentQuery)}</div>
+              <div class="plant-area">${a}</div>
+            </div>
+            <div class="plant-qty" style="background:${style.color}">
+              ${qty !== null ? qty.toLocaleString() : '—'}
+            </div>
+          </div>`;
+        totalShown++;
+      });
+      html += `</div>`;
+    });
+  }
+
+  countEl.textContent = showBrokered && brokeredAreas.length
+    ? `${brokeredAreas.length} brokered area${brokeredAreas.length>1?'s':''} + ${homegrownAreas.length} homegrown area${homegrownAreas.length!==1?'s':''}`
+    : `${filtered.length} plant${filtered.length !== 1 ? 's' : ''} found`;
+
+  container.innerHTML = html;
+}
+
+// Initial render
+render();
+if (window.innerWidth > 768) document.getElementById('search').focus();
+</script>
+</body>
+</html>
